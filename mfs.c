@@ -11,7 +11,37 @@ typedef struct data_info {
 struct file_time {
 	int year;
 	int month;
+	int da<stdio.h>
+#include <time.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+typedef struct data_info {
+	char contents[128];
+	struct data_info *data_p;
+	struct data_info *left;
+} data; // 포인터 byte는 따로 생각한다.
+struct file_time {
+	int year;
+	int month;
 	int day;
+	:
+	int hour;
+	int minute;
+	int seconds;
+}; 
+typedef struct inode_info { 
+	char *file_type;  
+	struct file_time f_t;  
+	int file_size;
+	int db;
+	int sib;
+	int dib;
+	data *d_p;
+	data *s_ip;
+	data *d_ip;
+} inode;y;
+	:
 	int hour;
 	int minute;
 	int seconds;

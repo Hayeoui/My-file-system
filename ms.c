@@ -40,6 +40,7 @@ data *dblock[1024] = {NULL};
 int update_mymkfs(super *, inode *, inode **);
 int func_mymkfs(super *, inode *, struct tm *, inode **); // 0) mymkfs
 void func_mystate(super *); // 16 ) mystate
+void func_mycpfrom(super *, inode *, char [], struct tm *, int, inode *); // 8)mycpfrom
 void func_mymkdir(super *, inode *, char [], struct tm *, int, inode *); // 9) mymkdir
 void func_myrmdir(super *, char [], inode *, inode *);  // 10) myrmdir
 int space_inode(super *);
@@ -128,16 +129,6 @@ int main(void)
 			words[j-(i+1)] = '\0';
 		}
 
-		for(i=0; words[i]!='\0'; ++i)
-			;
-		
-		if(i>4)
-		{
-			words[4] = '\0';
-		}
-		else
-			;
-
 		for(co_num=0; co_num<18; co_num++)
 		{
 			if(strcmp(compare, command[co_num])==0)	
@@ -182,9 +173,17 @@ int main(void)
 				}
 				else if(co_num == 8)
 				{
+					func_mycpfrom(&superblock, inode_list, words, t, now_d_num, now_d);
 				}
 				else if(co_num == 9)
 				{
+					for(i=0; words[i]!='\0'; ++i)
+						;
+					if(i>4)
+						words[4] = '\0';
+					else
+						;
+
 					find = name_find(inode_list, words, now_d);
 					if(find == 0)
 					{
@@ -226,6 +225,13 @@ int main(void)
 				}
 				else if(co_num == 10)
 				{
+					for(i=0; words[i]!='\0'; ++i)
+						;
+					if(i>4)
+						words[4] = '\0';
+					else
+						;
+					
 					func_myrmdir(&superblock, words, inode_list, now_d);
 						tmp = dblock[0];
 						while(tmp!=NULL)
@@ -334,6 +340,339 @@ int func_mymkfs(super *sp, inode *ip, struct tm *t, inode **now_dp)
 	*now_dp = &ip[0];
 
 	return 0;
+}
+void func_mycpfrom(super *sp, inode *ip, char words[], struct tm *t, int now_d_num, inode *now_d)
+{
+	char f1[20], f2[5];
+	int i, j, check, byte=0, c;
+	int scount = 0, dcount = 0, in, dn;
+	int s_dn, count;
+	int num=0;
+	data *tmp;
+	FILE *ofp;
+
+	time_t now;
+	now = time(NULL);
+	t = localtime(&now);
+
+	if(words[0] == ' ')
+		printf("Try input again\n");
+	else
+	{
+		for(i=0; words[i]!=' '; ++i)
+			f1[i] = words[i];
+		f1[i] = '\0';
+	
+		if(f1[0] == '\0')
+			printf("mycpfrom : missing operand\n");
+		else
+		{
+			for(i=0; words[i]!='\0'; ++i)
+				if(words[i]==' ')
+					break;
+
+			if(words[i]=='\0')
+				printf("mycpfrom : missing operand\n");
+			else
+			{
+	
+				if(words[i+1]==' ')
+					printf("Try input again\n");
+				else if(words[i+1]=='\0')
+					printf("mycpfrom : missing operand\n");
+				else
+				{
+					for(j=0, i=i+1; j<4&&words[i]!='\0'; ++i)
+					{
+						f2[j] = words[i];
+						++j;
+					}
+					f2[j] = '\0';
+
+					printf("f1 : %s, f2 : %s\n", f1, f2);
+
+					if(access(f1, F_OK)!=0)
+						printf("'%s' not exists in Cygwin\n", f1);
+					else
+					{
+						check = name_find(ip, f2, now_d); 
+						if(check != 0)
+							printf("'%s' is already exists in My-file-system\n", f2);
+						else
+						{
+							ofp = fopen(f1, "rb");
+
+							while(fscanf(ofp, "%c", &c)!=EOF)
+							{
+								byte++;
+							}
+
+							fclose(ofp);
+
+							if((byte % 128) == 0)
+								num = byte / 128;
+							else
+								num = (byte / 128) + 1;
+
+							// 개수에 따라서 direct, single, double 만들기
+							if(num == 0) // 파일이 0바이트여서 데이터블록 할당 안함.
+							{
+								/*my touch 파일 생성
+								in = space_inode(sp);
+								bit_inode(sp, in);
+
+								ip[in].file_type = "regular file";
+								ip[in].f_t.year = 1900+t->tm_year;
+								ip[in].f_t.month = 1+t->tm_mon;
+								ip[in].f_t.day = t->tm_mday;
+								ip[in].f_t.hour = t->tm_hour;
+								ip[in].f_t.minute = t->tm_min;
+								ip[in].f_t.seconds = t->tm_sec;
+								ip[in].file_size = byte;
+								ip[in].db = -1;
+								ip[in].sib = -1;
+								ip[in].dib = -1;*/
+
+								//mytouch함수 호출해서 0바이트인 파일 만들기.
+								//mytouch에서 파일 생성할 때 0바이트는 데이터블록 생성 안함.
+								//mytouch에서 부모, 형제 연결도 같이함.
+							}
+							else if(num == 1)
+							{
+								in = space_inode(sp);
+								bit_inode(sp, in);
+
+								ip[in].file_type = "regular file";
+								ip[in].f_t.year = 1900+t->tm_year;
+								ip[in].f_t.month = 1+t->tm_mon;
+								ip[in].f_t.day = t->tm_mday;
+								ip[in].f_t.hour = t->tm_hour;
+								ip[in].f_t.minute = t->tm_min;
+								ip[in].f_t.seconds = t->tm_sec;
+								ip[in].file_size = byte;
+
+								dn = space_data(sp);
+								bit_data(sp, dn);
+
+								ip[in].db = dn;
+								ip[in].sib = -1;
+								ip[in].dib = -1;
+
+								dblock[dn] = (data *)malloc(sizeof(data));
+								dblock[dn]->link = NULL;
+								dblock[dn]->next = NULL;
+								dblock[dn]->down = NULL;
+								dblock[dn]->parent = now_d_num;
+								dblock[dn]->d_num = dn;
+								// 데이터블록 1개에 내용 넣기.
+								// 형제 or 부모 찾아서 연결
+							}
+							else if((num>1)&&(num<104))
+							{
+								in = space_inode(sp);
+								bit_inode(sp, in);
+
+								ip[in].file_type = "regular file";
+								ip[in].f_t.year = 1900+t->tm_year;
+								ip[in].f_t.month = 1+t->tm_mon;
+								ip[in].f_t.day = t->tm_mday;
+								ip[in].f_t.hour = t->tm_hour;
+								ip[in].f_t.minute = t->tm_min;
+								ip[in].f_t.seconds = t->tm_sec;
+								ip[in].file_size = byte;
+
+								// 첫번째 데이터블록 생성.
+								dn = space_data(sp);
+								bit_data(sp, dn);
+
+								ip[in].db = dn;
+								ip[in].sib = -1;
+								ip[in].dib = -1;
+
+								dblock[dn] = (data *)malloc(sizeof(data));
+								dblock[dn]->next = NULL;
+								dblock[dn]->link = NULL;
+								dblock[dn]->down = NULL;
+								dblock[dn]->parent = now_d_num;
+								dblock[dn]->d_num = dn;
+								//128바이트까지 첫번째 데이터블록에 내용 넣기.
+								//부모 or 형제 디렉터리와 연결
+
+								// single indirect 데이터블록 만들기
+								dn = space_data(sp);
+								bit_data(sp, dn);
+
+								dblock[dn] = (data *)malloc(sizeof(data));
+								dblock[dn]->con.ind[0] = 0;
+								dblock[dn]->next = NULL;
+								dblock[dn]->link = NULL;
+								dblock[dn]->down = NULL;
+								dblock[dn]->parent = -1;
+								dblock[dn]->d_num = dn;
+								ip[in].sib = dn;
+
+								count = 2;
+								while(count<num+1)
+								{
+									dn = space_data(sp);
+									bit_data(sp, dn);
+
+									dblock[dn] = (data *)malloc(sizeof(data));
+									dblock[dn]->next = NULL;
+									dblock[dn]->link = NULL;
+									dblock[dn]->down = NULL;
+									dblock[dn]->parent = -1;
+									dblock[dn]->d_num = dn;
+									//128바이트 내용 넣기
+
+									tmp = dblock[ip[in].db];
+									while(tmp->link!=NULL)
+									{
+										tmp = tmp->link;
+									}
+									tmp->link = dblock[dn];
+
+									dblock[ip[in].sib]->con.ind[count-2] = dn;
+									if(count != 103)
+										dblock[ip[in].sib]->con.ind[count-1] = 0;
+
+									count++;
+								}
+
+							}
+							else
+							{
+								in = space_inode(sp);
+								bit_inode(sp, in);
+
+								ip[in].file_type = "regular file";
+								ip[in].f_t.year = 1900+t->tm_year;
+								ip[in].f_t.month = 1+t->tm_mon;
+								ip[in].f_t.day = t->tm_mday;
+								ip[in].f_t.hour = t->tm_hour;
+								ip[in].f_t.minute = t->tm_min;
+								ip[in].f_t.seconds = t->tm_sec;
+								ip[in].file_size = byte;
+
+								// 첫번쨰 데이터 블록 생성.
+								dn = space_data(sp);
+								bit_data(sp, dn);
+
+								ip[in].db = dn;
+								ip[in].sib = -1;
+								ip[in].dib = -1;
+
+								dblock[dn] = (data *)malloc(sizeof(data));
+								dblock[dn]->next = NULL;
+								dblock[dn]->link = NULL;
+								dblock[dn]->down = NULL;
+								dblock[dn]->parent = now_d_num;
+								dblock[dn]->d_num = dn;
+								//128바이트까지 첫번째 데이터블록에 내용 넣기.
+								//부모 or 형제 디렉터리와 연결
+
+								// single indirect 데이터블록 만들기
+								dn = space_data(sp);
+								bit_data(sp, dn);
+
+								dblock[dn] = (data *)malloc(sizeof(data));
+								dblock[dn]->con.ind[0] = 0;
+								dblock[dn]->next = NULL;
+								dblock[dn]->link = NULL;
+								dblock[dn]->down = NULL;
+								dblock[dn]->parent = -1;
+								dblock[dn]->d_num = dn;
+								ip[in].sib = dn;
+
+								count = 2;
+								while(count<104)
+								{
+									dn = space_data(sp);
+									bit_data(sp, dn);
+
+									dblock[dn] = (data *)malloc(sizeof(data));
+									dblock[dn]->next = NULL;
+									dblock[dn]->link = NULL;
+									dblock[dn]->down = NULL;
+									dblock[dn]->parent = -1;
+									dblock[dn]->d_num = dn;
+									//128바이트 내용 넣기
+									tmp = dblock[ip[in].db];
+									while(tmp->link!=NULL)
+									{
+										tmp = tmp->link;
+									}
+									tmp->link = dblock[dn];
+
+									dblock[ip[in].sib]->con.ind[count-2] = dn;
+									if(count != 103)
+										dblock[ip[in].sib]->con.ind[count-1] = 0;
+
+									count++;
+								}
+
+								dn = space_data(sp);
+								bit_data(sp, dn);
+
+								dblock[dn] = (data *)malloc(sizeof(data));
+								dblock[dn]->link = NULL;
+								dblock[dn]->next = NULL;
+								dblock[dn]->down = NULL;
+								ip[in].dib = dn;
+								dblock[dn]->con.ind[0] = 0;
+
+								while(count < num+1)
+								{
+									if(count % 102 == 2)
+									{
+										printf("come!\n");
+										dn = space_data(sp);
+										bit_data(sp, dn);
+										
+										dblock[dn] = (data *)malloc(sizeof(data));
+										dblock[dn]->link = NULL;
+										dblock[dn]->next = NULL;
+										dblock[dn]->down = NULL;
+										dblock[dn]->parent = -1;
+										dblock[dn]->d_num = dn;
+
+										dblock[ip[in].dib]->con.ind[dcount] = dn;
+
+										scount = 0;
+										dcount++;
+										s_dn = dn;
+									}
+
+									dn = space_data(sp);
+									bit_data(sp, dn);
+
+									dblock[dn] = (data *)malloc(sizeof(data));
+									dblock[dn]->link = NULL;
+									dblock[dn]->next = NULL;
+									dblock[dn]->down = NULL;
+									dblock[dn]->parent = -1;
+									dblock[dn]->d_num = dn;
+									// 128바이트 내용 적기.
+
+									tmp = dblock[ip[in].db];
+									while(tmp->link!=NULL)
+									{
+										tmp = tmp->link;
+									}
+									tmp->link = dblock[dn];
+
+									dblock[s_dn]->con.ind[scount] = dn;
+
+									scount++;
+									count++;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }
 void func_mymkdir(super *sp, inode *ip, char words[], struct tm *t, int now_d_num, inode *now_d)
 {
@@ -648,15 +987,6 @@ void func_myrmdir(super *sp, char words[], inode *ip, inode *now_d)
 		}
 	}
 }
-
-
-
-
-
-
-
-
-
 void func_mystate(super *sp)
 {
 	int i, j, quotient;
